@@ -1,0 +1,480 @@
+---
+title: "Deriving Microclimatic Variables"
+output:
+  pdf_document: 
+    toc: true
+    toc_depth: 3
+    dev: cairo_pdf
+  word_document:
+    toc: true
+    toc_depth: '3'
+  html_document:
+    toc: yes
+    toc_float: 
+      collapsed: no
+      smooth_scroll: no
+    toc_depth: 3
+header-includes:
+  - \usepackage{fancyhdr}
+  - \pagestyle{fancy}
+  - \fancyhf{} % Clear all header and footer fields
+  - \fancyfoot[L]{Methodology for working with time series of climate data and microclimatic maps}
+  - \fancyfoot[R]{\thepage} % Add page numbers on the right
+  - \renewcommand{\headrulewidth}{0pt} % Remove the header line
+  - \renewcommand{\footrulewidth}{0.5pt} % Add the footer line
+  - \usepackage{caption}
+  - \captionsetup[figure]{justification=raggedright,singlelinecheck=false}
+  - \pdfcompresslevel=9 % Set maximum PDF compression
+  - \pdfobjcompresslevel=2 % Set object compression
+  - \usepackage{float}
+  - \usepackage{graphicx} % Ensure graphicx is included for image handling
+  - \usepackage{epstopdf} % Include for EPS to PDF conversion if needed
+  - \usepackage{booktabs} % Add this line to use \toprule, \midrule, and \bottomrule
+  - \usepackage{hyperref}
+  - \hypersetup{pdfauthor={Institute of Botany of the Czech Academy of Sciences},pdftitle={Deriving Microclimatic Variables}}
+lang: "EN"   
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup 2, include=FALSE, results='hide'}
+knitr::opts_chunk$set(echo = TRUE)
+# Determine output format (html, pdf, docx) from RMarkdown
+output <- knitr::opts_knit$get("rmarkdown.pandoc.to")
+if (knitr::is_latex_output()){output<-"pdf"}
+if (is.null(output)) {output <- "html"}
+
+# Install and load libraries
+options(kableExtra.auto_format = FALSE)
+suppressWarnings(lapply(c("kableExtra", "knitr","flextable"), function(pkg) {
+  if (!require(pkg, character.only = TRUE))
+    install.packages(pkg, repos = "https://mirrors.nic.cz/R/")
+  library(pkg, character.only = TRUE)
+}))
+
+# Custom function for table creation
+default_kable <- function(data, ...) {
+  if(output == "docx") {
+  flextable(data) %>% 
+      set_table_properties(width = 1, layout = "autofit") %>%
+      fontsize(size = 7, part = "body") %>% fontsize(size = 8, part = "header") %>%
+      height(height = 0.5, part = "body") 
+  } else if (output == "pdf") {
+    # Output for PDF (LaTeX)
+    kable(data, format = "latex", booktabs = TRUE, position = "H", ...) %>%
+    kable_styling(font_size = 7)
+  } else if (output == "html") {
+    kable(data, format = "html", booktabs = TRUE, ...) %>%
+      kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                    font_size = 7, full_width = FALSE, position = "center") %>%
+      knitr::asis_output()
+  } else {
+    # Safety fallback to LaTeX
+    kable(data, booktabs = TRUE, ...) %>%
+    kable_styling(font_size = 7) %>%
+    print()
+  }
+}
+```
+
+# 2. Microclimatic Variables
+
+In previous chapters, we focused on how to create the most relevant microclimatic measurements from dataloggers, how to download them from dataloggers, clean them, validate them, calibrate them, and possibly connect time series from one location with multiple readings.
+
+In this section, we will show how to derive biologically relevant microclimatic variables from time series of microclimate measurements. These characterize the microclimate at locations over a given time period (e.g., annual/seasonal/monthly/daily averages, minima, maxima, or variability).
+
+## 2.1. Time / Period
+
+Microclimatic dataloggers typically measure at relatively fine temporal resolution (tens of seconds to hours). However, for biological analyses, it is usually desirable to aggregate data over time using mathematical functions and thus obtain descriptive characteristics for a given period (e.g., daily, monthly, seasonal, annual...). The choice of period length for calculating microclimatic variables depends on the question we want to answer using microclimatic data. For some systems and variables, it is appropriate to aggregate time series over the **calendar year**. Where soil moisture influenced by snow melt comes into consideration, the **hydrological year** is a more suitable choice (for the Czech Republic, the period November 1 - October 31). If part of the year is not relevant for the studied system, then it may be desirable to use microclimatic data from a specific period, e.g., **growing season**. The choice of appropriate time period for data aggregation plays an important role because it affects whether we capture biologically relevant signal in the data or whether it is obscured by noise from measurements in a period that is not relevant for the given question.
+
+For processing microclimatic time series, the time zone in which loggers measure is also important, especially when analyzing data from a larger area, e.g., globally. Time shift can play a role especially in data aggregations and calculations of biologically relevant variables. Many loggers measure in UTC (TOMST TMS-4) regardless of user preference or time zone where they are installed, other loggers can be set to a specific time zone. The *myClim* library used here strictly assumes that the time series of any input data is in UTC. If a user uses loggers that don't measure in UTC, it is desirable to specify the `tz_offset` parameter when loading them into *myClim*, i.e., the number of minutes by which the given time series is shifted relative to UTC. *myClim* will then take this offset into account in subsequent aggregations.
+
+For examples, we use data from ten locations. All locations have TOMST TMS-4 loggers measuring air temperature at 15 cm, 2 cm above soil surface, 8 cm below soil surface, soil moisture in the top layer 0 - 15 cm, nine locations have Thermologger measuring air temperature at 200 cm above ground, and HOBO U23 logger measuring air temperature and humidity at 150 cm above ground. Time series approximately from April 2021 to October 2023, but loggers did not measure for the same duration, there are missing segments in the data.
+
+```{r 02-loaddata, message=FALSE, warning=FALSE,results='hide', tab.cap="Loaded data in long format."}
+## Loading prepared myClim object from chapter 1 - Data Preparation from Files
+# Installation and loading of libraries
+suppressWarnings(lapply(c("myClim", "ggplot2"), function(pkg) {
+  if (!require(pkg, character.only = TRUE))
+    install.packages(pkg, repos = "https://mirrors.nic.cz/R/")
+  library(pkg, character.only = TRUE)
+}))
+
+micro.data <- mc_load("./data/prep_CZ2_10_join.rds")
+micro.data
+```
+
+
+
+```{r 02-loaddata_plot, message=FALSE, warning=FALSE, results='hide', fig.cap="Plotting graph of temperature and relative humidity progression."}
+## plotting graph of temperature and relative humidity progression
+p <- mc_plot_line(micro.data[5:7], sensors = c("TMS_T3", "HOBO_RH"))
+
+## manual color adjustment
+p <-
+  p + ggplot2::scale_color_manual(values = scales::alpha(c("darkblue", "hotpink"), 0.7),
+                                  name = NULL)
+print(p)
+
+## calculation of offset relative to UTC, photoperiod synchronization
+micro.data<-mc_prep_solar_tz(micro.data)
+```
+
+```{r 02-table_meta, echo=FALSE, message=FALSE, warning=FALSE, tab.cap="Display of information about micro.data object"}
+default_kable(mc_info_meta(micro.data))
+```
+
+## 2.2. Temperature
+
+Temperature and variables directly derived from it are among the most used (micro)climatic parameters. This is partly due to actual biological relevance, but also due to the low technical demands of temperature measurement. Basic temperature variables undoubtedly include average temperature for a given period and temperature extremes. Average is a methodologically easily graspable variable, however, even here we encounter different calculation methods. The meteorological dictionary (<https://slovnik.cmes.cz/>) refers to the arithmetic average of all regular observations during 24 hours as "true daily average temperature" and this calculation method is preferred in micrometeorology. In meteorology in the Czech Republic, for historical reasons, daily average air temperature is used as a weighted average of temperatures at measurement times 7h, 14h and 21h local time, with measurement at 21h having double weight. American NOAA defines daily average temperature as the average of minimum and maximum daily temperature, which can lead to certain deviations in temperatures thus determined and complicate comparability of reported values from different sources.
+
+Similarly, the method of determining minimum and maximum temperatures differs in practice. In SYNOP reports, the minimum from temperatures during the night period (from 18 to 06 UTC) is reported, for climatological purposes minimum temperature is reported for the period 24 hours before the evening term (21h). To eliminate the influence of outlier observations (due to random climatic events or influenced measurements), percentiles (e.g., 5th percentile for minima and 95th percentile for maxima) from observed values are used in microclimatology to characterize temperature extremes.
+
+An important derived variable is then the sum of temperatures above or below a certain threshold temperature (sum of effective temperatures, Growing degree days, GDD / Freezing degree days, FDD). These determine, for example, the length of season for crop or pest development, or conversely the length of freezing relevant for survival of some organisms (pests / parasites). The choice of threshold temperature depends on the research question; in agronomy, different threshold values are established for individual crops according to their physiological requirements. In ecology, a threshold value of 5°C is generally used for calculation, which is widely accepted as the limiting temperature for plant growth.
+
+### Calculation of Virtual Sensors from Temperature 
+
+For easier work with data, it is useful to store some variables, derived from one or more sensors, directly as a so-called virtual sensor of the given logger. These sensors have the same measurement period as those sensors from which they were derived. For example, from temperatures we calculate virtual sensor Growing degree days (GDD) or Freezing degree days (FDD), i.e., the sum of effective/frost temperatures above/below chosen threshold value - the sensor stores values by which each period contributes to the given variable. Only after aggregation to days or longer time period can we speak directly about FDD or GDD.
+
+```{r 02-calc_gddfdd, message=FALSE, warning=FALSE, results='hide'}
+# Instalation and loading of libraries
+suppressWarnings(lapply(c("myClim", "dplyr", "tidyr"), function(pkg) {
+  if (!require(pkg, character.only = TRUE))
+    install.packages(pkg, repos = "https://mirrors.nic.cz/R/")
+  library(pkg, character.only = TRUE)
+}))
+# For example we'll use TMS_T3 sensor 15 cm above ground, from TMS-4 TOMST logger
+micro.data <- mc_calc_gdd(micro.data, sensor = "TMS_T3", t_base = 5)
+micro.data <- mc_calc_fdd(micro.data, sensor = "TMS_T3", t_base = 5)
+```
+
+### Calculation of Temperature Variables
+
+For example, let's define growing season as the period May 1 - August 31. Using parameter `period="custom"` we can introduce any period for which variables will be calculated. If the time series contains measurements from multiple years, variables are calculated for all years where there is sufficient data coverage defined by parameter `min_coverage=0.9`, i.e., if we have more than 90% of data for the given period, the variable is calculated, if less than 90% myClim returns NA, i.e., empty value. Aggregation functions are defined in the example below as a list of functions, where we specifically select which functions apply to which sensors. Sensors for which no function is defined do not enter the calculation and are not included in the resulting object. Parameter `percentiles = c(5,95)` defines which percentiles should be calculated in the "percentile" function.
+
+```{r 02-agg_veget, eval=TRUE, message=FALSE,warning=FALSE}
+## display sensors available in myClim object for calculations
+levels(factor(mc_info(micro.data)$sensor_name))
+
+## select temperature sensors and required aggregation functions
+micro.veget <- mc_agg(micro.data,
+                    period = "custom",
+                    custom_start = "05-01",
+                    custom_end = "08-31",
+                    percentiles = c(5,95),
+                    min_coverage = 0.9,
+                    fun=list(
+                      FDD0="sum",
+                      GDD5="sum",
+                      HOBO_T=c("mean","percentile","range"),
+                      Thermo_T=c("mean","percentile","range"),
+                      TMS_T1=c("mean","percentile","range"),
+                      TMS_T2=c("mean","percentile","range"),
+                      TMS_T3=c("mean","percentile","range")))
+```
+
+The resulting myClim object contains all input sensors with suffix of given function. Each sensor has number of measurements according to how many segments of time series met the condition "min_coverage". In our example these are for some locations 3 values (3 growing seasons), in some cases 2 values, sometimes only one because input time series was too short.
+
+```{r 02-plot_temperature_stat,eval=TRUE, message=FALSE,warning=FALSE, fig.cap="Average, minimum and maximum temperature at 2 m at several locations."}
+## display resulting sensors
+levels(factor(mc_info(micro.veget)$sensor_name))
+
+## convert from myClim object to simple table, long format
+df.veget <- mc_reshape_long(micro.veget)
+
+## visualization
+## average, minimum and maximum air temperature 200 cm above ground (Thermo_T)
+df.veget$datetime <- as.character(df.veget$datetime)
+viz <- df.veget %>%
+  filter (
+    sensor_name %in% c(
+      "Thermo_T_mean",
+      "Thermo_T_percentile5",
+      "Thermo_T_percentile95"
+      
+    )
+  ) %>%
+  filter (!is.na(value))
+
+viz <- pivot_wider(viz, 
+                   names_from = "sensor_name",
+                   values_from = "value")
+
+p <-
+  ggplot(viz, aes(x = locality_id, y = Thermo_T_mean, col = datetime)) +
+#  ggplot(viz, aes(x = locality_id, y = TMS_T1_mean, col = datetime)) +
+  geom_point(position = position_dodge(width = 0.5)) +
+  geom_errorbar(
+    aes(ymin = Thermo_T_percentile5,
+        ymax = Thermo_T_percentile95,
+#    aes(ymin = TMS_T1_percentile5,
+#        ymax = TMS_T1_percentile95,
+        width = 0.15),
+    position = position_dodge(width = 0.5)
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(
+    angle = 60,
+    vjust = 0.7,
+    hjust = 0.5
+  )) +
+  theme(legend.position = "bottom") +
+  labs(title = "Temperature at 2 m", 
+       subtitle = "average, minimum (P5) and maximum (P95)")
+
+print(p)
+```
+
+
+
+
+
+### Calculation of myClim Temperature Variables
+
+For calculating statistics aggregating measurements over longer time periods, the `mc_agg()` function serves in the *myClim* library. It applies functions (predefined or user-defined) to measurement series in a specified time period.
+
+For calculating a standardized set of temperature indicators, the `mc_env_temp()` function serves in the *myClim* library, which calculates the following summary indicators for a specified time period:
+
+- **min5p**: Minimum temperature (5th percentile of daily minimum temperatures)
+- **mean**: Average temperature (average of daily temperatures)
+- **max95p**: Maximum temperature (95th percentile of daily maxima)
+- **drange**: Average daily temperature amplitude (average difference between daily maxima and minima)
+- **GDD5**: Sum of effective temperatures (sum of temperatures above threshold value, default value 5°C)
+- **FDD0**: Sum of frost temperatures (sum of negative temperature deviations from threshold value, default value 0°C)
+- **frostdays**: Number of frost days (days with minimum temperature <0°C)
+
+When manually calculating using the `mc_agg()` function, values are directly aggregated according to user-specified parameters. In contrast, when using the `mc_env_temp()` function, temperature variables are first aggregated to daily step and from there then to the period specified by the user. This approach is closer to meteorological standards. Another difference is that the `mc_env_temp()` function returns a flat table directly. This cannot be further processed using the *myClim* library, but is directly prepared for subsequent analyses.
+
+The `mc_env_temp()` function requires that all sensors at locations have the same time step. In our data set that we use as an example, this is not the case. There are 2 types of loggers at the locations: TOMST TMS measures at 15-minute intervals and HOBO at 30-minute intervals. The simplest solution is to unify the time step to 30 minutes using aggregation with, for example, average `mc_agg(period="30 min", fun="mean")`.
+
+For example, here we will calculate variables for the calendar year. Here too we define minimum data coverage, or maximum allowed proportion of missing values using the `min_coverage` parameter. In the resulting table there is a large number of rows with missing value, which indicates that the condition `min_coverage` was not met for the given period. We can consider different threshold value setting, missing (NA) values can be subsequently removed from the resulting table.
+
+```{r 02-tms_hobo, eval=TRUE, message=FALSE,warning=FALSE, fig.cap="Average, minimum and maximum temperature at different heights at several locations."}
+## unify period of TMS and HOBO loggers to 30 min
+micro.data30 <- mc_agg(micro.data, period = "30 min", fun = "mean")
+
+## calculation of myClim temperature variables for growing season
+micro.temp <-
+  mc_env_temp(
+    micro.data30,
+    period = "year",
+    min_coverage = 0.9,
+    gdd_t_base = 5,
+    fdd_t_base = 0
+  )
+
+## remove missing values
+micro.temp <- filter(micro.temp, !is.na(value))
+
+## visualization
+micro.temp$fun <- micro.temp$sensor_name %>%
+  strsplit(".", fixed = T) %>%
+  lapply("[", 3) %>%
+  unlist()
+
+viz <- micro.temp %>%
+  filter (fun %in% c("mean", "min5p", "max95p")) %>%
+  filter (!is.na(value))
+viz$sensor_name <- NULL
+viz <- pivot_wider(viz, names_from = "fun",
+                   values_from = "value")
+
+p <- ggplot(viz, aes(x = locality_id, y = mean, col = height)) +
+  geom_point(position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(ymin = min5p,
+                    ymax = max95p,
+                    width = 0.15),
+                position = position_dodge(width = 0.5)) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(
+    angle = 60,
+    vjust = 0.7,
+    hjust = 0.5
+  )) +
+  theme(legend.position = "bottom") +
+  ylab("Temperature [°C]") +
+  xlab(NULL) +
+  labs(title = "Temperature at different heights/depths",
+       subtitle = "average, minimum (P5) and maximum (P95) in year 2022")
+
+print(p)
+```
+
+\newpage
+## 2.3. Soil Moisture
+
+The numerical output of soil moisture sensors in microclimatic loggers often is not directly volumetric soil moisture values or other standard variables. Raw moisture signal values from loggers can be used directly for relative comparison or for obtaining rough information about moisture conditions in the given system. However, it is more appropriate to try to convert raw measurements to standard quantities if the logger manufacturer provides necessary information and calibration protocols.
+
+### Calculation of Volumetric Soil Moisture
+
+Soil moisture sensors (TOMST TMS4) provide information about volumetric soil moisture after processing the raw signal. This quantity gives a basic idea about moisture availability for plants and other processes dependent on soil water content. However, hydrolimits for individual soil types differ, and therefore measured values need to be interpreted in relation to soil properties at the specific site. For example, the wilting point ranges between 5% volumetric moisture for sandy soils to 20% for clay soils.
+
+Converting TMS4 raw moisture signal to volumetric moisture is still subject to discussion and optimization. There is a considerable range of options for which soil type to use whether by selection from pre-defined ones or by entering calibration parameters of own soil type. Logger calibration also plays a role (values that the sensor reaches in air and after immersion in water). For more information we recommend the following sources:
+
+- help for function [mc_calc_vwc()](INSERT LINK TO HELP)
+- calibration application on manufacturer's website [TMS Calibr utility](https://tomst.com/web/en/systems/tms/software/)
+
+For simplification here we will use the universal calibration curve derived in work (Kopecký et al., 2021). Besides conversion to volumetric moisture, the `mc_calc_vwc()` function in basic setting also deletes moisture values in period when soil was frozen `frozen2NA = TRUE`, because such measurements are biologically less relevant.
+
+```{r 02-moistdata, eval=TRUE, message=FALSE,warning=FALSE, fig.cap="Visualization of raw moisture signals and volumetric moisture progression for several locations."}
+## calculation of virtual sensor for volumetric moisture
+## conversion of TMS moisture signal to volumetric moisture
+moist.data <- mc_calc_vwc(micro.data, soiltype = "universal",
+                          frozen2NA = TRUE)
+
+## visualization
+p <- mc_plot_line(moist.data,sensors = c("TMS_moist", "VWC_moisture"))
+p <- p + ggplot2::scale_color_manual(values = c("darkblue","steelblue"), 
+                                   name = NULL)
+print(p)
+```
+
+
+### Soil Moisture Variables
+
+For calculating standardized soil moisture indicators, the `mc_env_moist()` function serves in the *myClim* library, which calculates the following parameters for time series of moisture measurements for specified time intervals:
+
+- **VWC.5p**: minimum volumetric soil moisture (5th percentile of volumetric soil moisture)
+- **VWC.mean**: average volumetric soil moisture
+- **VWC.95p**: maximum volumetric soil moisture (95th percentile of volumetric soil moisture)
+- **VWC.sd**: stability of water regime (standard deviation of volumetric soil moisture)
+
+Similar to the function for calculating *myClim* temperature variables, here too the calculated variables are returned in the form of a flat table that can no longer be used in the *myClim* library but is prepared for subsequent analyses. Before using the `mc_env_moist()` function, it is necessary to first calculate virtual sensors of volumetric moisture. The function does not work with TMS units or with other direct measurements that are not volumetric moisture.
+
+Here too the function requires that all sensors at locations have the same time step. In our data set that we use as an example, this is not the case. There are 2 types of loggers at the locations: TOMST TMS measures at 15-minute intervals and HOBO at 30-minute intervals. We can similarly as in the temperature example above convert sensors to the same step. In this case however we will remove HOBO loggers from the myClim object because we don't need them for this calculation. Here too the function returns us a large number of missing values due to the `min_coverage` parameter.
+
+```{r 02-soilmoist, eval=TRUE, message=FALSE,warning=FALSE, fig.cap="Volumetric soil moisture at several locations."}
+## use myClim object with virtual sensor for volumetric moisture
+## remove HOBO loggers from myClim object, they have different time step
+moist.data.TMS <-
+  mc_filter(moist.data, logger_types = "HOBO_U23-001A", reverse = T)
+
+## calculation of variables only for TOMST TMS loggers
+micro.moist <-
+  mc_env_moist(moist.data.TMS, period = "year", min_coverage = 0.9)
+
+## remove missing values
+micro.moist <- filter(micro.moist, !is.na(value))
+
+## visualization
+micro.moist$fun <- micro.moist$sensor_name %>%
+  strsplit(".", fixed = T) %>%
+  lapply("[", 3) %>%
+  unlist()
+micro.moist$sensor_name <- NULL
+micro.moist.w <- pivot_wider(micro.moist, names_from = "fun",
+                             values_from = "value") %>%
+  filter(datetime == as.Date("2022-01-01"))
+
+ggplot(micro.moist.w, aes(x = locality_id, y = mean)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = `5p`,
+                    ymax = `95p`,
+                    width = 0.15)) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(
+    angle = 60,
+    vjust = 0.7,
+    hjust = 0.5
+  )) +
+  theme(legend.position = "bottom") +
+  ylab("Volumetric soil moisture [%]") +
+  xlab(NULL) +
+  labs(title = "Volumetric soil moisture",
+       subtitle = "average, minimum (P5) and maximum (P95) for year 2022")
+```
+
+\newpage
+## 2.4. Air Humidity
+
+From the perspective of biological relevance, vapor pressure deficit (VPD) is an important indicator of air humidity. It expresses the difference between maximum water vapor pressure at given temperature and actual water vapor pressure and thus reflects, better than relative air humidity, e.g., water loss by transpiration and risk of water stress in plants or fire risk. With knowledge of temperature and relative air humidity (e.g., from HOBO U23 Pro v2 sensor data), vapor pressure deficit can be calculated using the `mc_calc_vpd()` function.
+
+The function also requires that all sensors at locations have the same time step. Again, we will remove loggers from the myClim object that we won't need for this calculation, we will keep only HOBO loggers. Here too the function returns us a large number of missing values due to the `min_coverage` parameter.
+
+```{r 02-vpd, eval=TRUE, message=FALSE,warning=FALSE, fig.cap="Relative humidity and vapor pressure deficit progression for several locations."}
+## keep only HOBO loggers
+micro.data.HOBO <- mc_filter(micro.data,logger_types = "HOBO_U23-001A",reverse = F)
+
+## calculation of virtual sensor for vapor pressure deficit (VPD) from HOBO loggers
+vpd.data <- mc_calc_vpd(micro.data.HOBO)
+
+## visualization
+p <- mc_plot_line(vpd.data,sensors = c("HOBO_RH", "VPD"),scale_coeff = 20)
+p <- p + ggplot2::scale_color_manual(values = c("red","black"), 
+                                   name = NULL)
+print(p)
+```
+
+### myClim Air Humidity Variables
+
+For calculating standardized air humidity variables (vapor pressure deficit VPD), the `mc_env_vpd()` function serves in the *myClim* library, which calculates the following parameters for time series of virtual sensor VPD:
+
+- **VPD.mean**: average vapor pressure deficit (average of daily VPD averages)
+- **VPD.max95p**: maximum vapor pressure deficit (95th percentile of daily VPD maxima)
+
+```{r 02-plotVPD, eval=TRUE, message=FALSE,warning=FALSE, fig.cap="Average and maximum (95p) vapor pressure deficit at several locations."}
+## use myClim object with virtual VPD sensor calculated above
+micro.vpd <- mc_env_vpd(vpd.data, period = "year", min_coverage = 0.9)
+
+## remove missing values
+micro.vpd <- filter(micro.vpd, !is.na(value))
+
+## visualization
+micro.vpd$proměnná <- micro.vpd$sensor_name %>%
+  strsplit(".", fixed = T) %>%
+  lapply("[", 3) %>%
+  unlist()
+
+ggplot(micro.vpd, aes(x = locality_id, y = value, col = proměnná)) +
+  geom_point() +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  ylab("Vapor pressure deficit [kPa]") +
+  xlab(NULL) +
+  labs(title = "Vapor pressure deficit",
+       subtitle = "average and maximum (P95) for year 2022")
+```
+
+## 2.5. Estimation of Snow Cover Presence
+
+Snow cover fundamentally affects temperatures at soil surface. The insulating properties of snow cover and latent heat of melting cause temperature fluctuations under snow cover to be significantly dampened and in case of partially wet snow (which is the predominant state in Czech conditions) the temperature at the soil/snow interface stays close to 0°C. These principles can be used for detecting snow cover from microclimatic measurements. The `mc_calc_snow()` function serves for this, which detects snow presence at those measurements that meet conditions for maximum temperature (default value 1.25°C) and maximum temperature range (default value 1°C) in a moving time window (default value 3 days) on chosen temperature sensor (default choice ground sensor of Tomst TMS4 sensor). Reliability of snow detection with these default values is around 95% (by comparison with daily photos of location by camera trap). For deriving basic statistics (duration of snow cover, first/last day of snow cover and first/last day of continuous snow cover), the function `mc_calc_snow_agg()` serves. Continuous snow cover can be user-defined (default value 3 days).
+
+```{r 02-snow, eval=TRUE, message=FALSE,warning=FALSE, fig.cap="Visualization of detected snow on time series from several stations."}
+## Snow detection based on ground temperatures (TMS_T2)
+## Output saved as virtual sensor "snih"
+micro.snow <- mc_calc_snow(micro.data, 
+                           sensor = "TMS_T2", 
+                           output_sensor = "snih", 
+                           range = 1,
+                           tmax = 1.25, 
+                           days = 3)
+## Visualization
+mc_plot_line(micro.snow[c("CZ2_BUKOVEC",
+                           "CZ2_KRKLAB",
+                           "CS_26")], sensors = c("TMS_T2","snih"))
+
+## Calculation of basic snow cover statistics for winter season 2021/2022
+## Selection of data for chosen period
+micro.snow.2021 <- mc_prep_crop(micro.snow, 
+                                start = as.POSIXct("2021-10-01", tz="UTC"), 
+                                end = as.POSIXct("2022-06-01", tz="UTC"))
+
+## Calculation of snow cover duration,
+## continuous snow cover defined as minimum of 7 consecutive days
+tabulka.snih.2021 <- mc_calc_snow_agg(micro.snow.2021, 
+                                      snow_sensor = "snih", 
+                                      period = 7)
+```
+
+```{r 02-snowtable, echo=FALSE, message=FALSE, warning=FALSE, tab.cap="Duration of snow cover automatically detected from temperature progression"}
+default_kable(tabulka.snih.2021)
+```
+
+```{r 02-cleanup, eval=TRUE, message=FALSE,warning=FALSE, include=FALSE}
+## Clean up variables in R environment
+try(rm(df.veget, micro.data, micro.data.HOBO,micro.data30,micro.moist,
+   micro.temp, micro.veget, moist.data, moist.data.TMS,p,viz,vpd.data, 
+   micro.vpd, micro.snow, micro.snow.2021, tabulka.snih.2021))
+```
+

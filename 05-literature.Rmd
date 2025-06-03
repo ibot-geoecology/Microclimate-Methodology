@@ -1,0 +1,76 @@
+---
+title: "References"
+output:
+   pdf_document:
+    toc: true
+    toc_depth: '3'
+    dev: cairo_pdf
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+    toc_depth: 3
+  word_document:
+    toc: true
+    toc_depth: '3'
+header-includes:
+  - \usepackage{fancyhdr}
+  - \pagestyle{fancy}
+  - \fancyhf{} % Clear all header and footer fields
+  - \fancyfoot[L]{Methodology for working with time series of climate data and microclimatic maps}
+  - \fancyfoot[R]{\thepage} % Add page numbers on the right
+  - \renewcommand{\headrulewidth}{0pt} % Remove the header line
+  - \renewcommand{\footrulewidth}{0.5pt} % Add the footer line
+  - \usepackage{caption}
+  - \captionsetup[figure]{justification=raggedright,singlelinecheck=false}
+  - \pdfcompresslevel=9 % Set maximum PDF compression
+  - \pdfobjcompresslevel=2 % Set object compression
+  - \usepackage{float}
+  - \usepackage{graphicx} % Ensure graphicx is included for image handling
+  - \usepackage{epstopdf} % Include for EPS to PDF conversion if needed
+  - \usepackage{booktabs} % Add this line to use \toprule, \midrule, and \bottomrule
+---
+
+
+# References
+
+BOX, G. E. P., and JENKINS, G. M. (1970) Time Series Analysis: Forecasting and Control. San Francisco: Holden-Day.
+
+BRŮNA, J., KLINEROVÁ, T., KONOPOVÁ, Z., KALČÍK, V. a KIRSCHNER, J. (2023) Využití mikroklimatických dat v památkách zahradního umění. *Zahradnictví*. vol. 11.
+
+BRŮNA, J., MACEK, M., MAN, M., HEDEROVÁ, L., KLINEROVÁ, T., MOUDRÝ, V., HEURICH, M., ČERVENKA, J., WILD, J. a KOPECKÝ, M. (2023) High-resolution microclimatic grids for the Bohemian Forest Ecosystem (1.0) [Data set]. *Zenodo*. doi: <https://doi.org/10.5281/zenodo.6352641>
+
+BRŮNA J., WILD J., HEDEROVÁ L., KLINEROVÁ T., MACEK M. a URBANOVÁ R. (2021) Metodika měření mikroklimatu pomocí mikroklimatických stanic systému TMS. *Botanický ústav AVĆR* <http://hdl.handle.net/11104/0317943>
+
+CHIANUCCI F. a MACEK M. (2023) hemispheR: an R package for fisheye canopy image analysis. *Agricultural and Forest Meteorology*. vol.  336: 109470. doi: <https://doi.org/10.1016/j.agrformet.2023.109470>
+
+CRAWLEY, M. J. (2013). The R Book. John Wiley & Sons.
+
+CRUZ-ALONZO, V., PUCHER, C., RARCLIFFE, S., RUIZ-BENITO, P., ASTIGARRAGA, J., NEUMANN, M., HASENAUER, H., RODRÍGUEZ-SÁNCHEZ, F. (2023) “The easyclimate R package: Easy access to high-resolution daily climate data for Europe.” *Environmental Modelling & Software*, 105627. doi: <https://doi.org/10.1016/j.envsoft.2023.105627>.
+
+HAESEN, S., et al. (2021) ForestTemp – Sub-canopy microclimate temperatures of European forests. *Global Change Biology*. vol. 27(23), s. 6307–6319. doi: <https://doi.org/10.1111/gcb.15892>
+
+HAESEN, S., et al. (2023) ForestClim – Bioclimatic variables for microclimate temperatures of European forests. *Global Change Biology*. vol. 29: s. 2886-2892 doi: <https://doi.org/10.1111/gcb.16678>
+
+LEMBRECHTS J.J., et al. (2022) Global maps of soil temperature. *Global Change Biology* vol. 28: s. 3110–3144. doi: <https://doi.org/10.1111/gcb.16060>
+
+KOPECKÝ, M., MACEK, M. a WILD, J. (2021) Topographic Wetness Index calculation guidelines based on measured soil moisture and plant species composition. *Science of the Total Environment*. vol. 757, 143785. doi: <https://doi.org/10.1016/j.scitotenv.2020.143785>
+
+MACEK, M., KOPECKÝ, M., a WILD, J. (2019) Maximum air temperature controlled by landscape topography affects plant species composition in temperate forests. *Landscape Ecology*. vol. 34: s. 2541–2556. doi: <https://doi.org/10.1007/s10980-019-00903-x>
+
+MAN, M., KALČÍK, V., MACEK, M., BRŮNA, J., HEDEROVÁ, L., WILD, J. a KOPECKÝ, M. (2023) myClim: Microclimate data handling and standardised analyses in R. *Methods in Ecology and Evolution*. vol. 14: s. 2308-2320. doi: <https://doi.org/10.1111/2041-210X.14192>
+
+MORENO, A., HASENAUEER, H. (2016) Spatial downscaling of European climate data. *International Journal of Climatology*, 1444–1458. doi: <https://doi.org/10.1002/joc.4436>
+
+NOAA National Centers of Environmental Information (1999) Global Surface Summary of the Day - GSOD. 1.0. *NOAA National Centers for Environmental Information.* id: gov.noaa.ncdc:C00516
+
+PUCHER, C., NEUMANN, M. (2022). Description and Evaluation of Downscaled Daily Climate Data Version 3. *figshare* doi: <https://doi.org/10.6084/m9.figshare.19070162.v1>
+
+PUCHER, C. (2023). Description and Evaluation of Downscaled Daily Climate Data Version 4. *figshare* doi: <https://doi.org/10.6084/m9.figshare.22962671.v1>
+
+SPARKS, A. H., HENGL, T. a NELSON, A. (2017) GSODR: Global Summary Daily Weather Data in R. *The Journal of Open Source Software*, 2(10). doi: <https://doi.org/10.21105/joss.00177>
+
+WILD, J., KIRSCHNER, J., MORAVEC, D. a KOHLOVÁ, J. (2014) Microclimate measurement as one of the prerequisites for succesful introduction of ornamental trees. *Acta Pruhoniciana*. vol. 108: s. 5–13.
+
+WILD, J., KOPECKÝ, M., MACEK, M., ŠANDA, M., JANKOVEC, J. a T. HAASE. (2019) Climate at ecologically relevant scales: A new temperature and soil moisture logger for long-term microclimate measurement. *Agricultural and Forest Meteorology*. vol. 268: s. 40–47. doi: <https://doi.org/10.1016/j.agrformet.2018.12.018>
